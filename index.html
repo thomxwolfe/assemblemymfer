@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>assemble my mfer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Schoolbell&display=swap" rel="stylesheet">
+  <style>
+    body {
+      text-align: center;
+      font-family: "Schoolbell", cursive;
+      background-color: #FFB470;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      margin: 20px 0;
+      font-size: 2.5rem;
+      text-transform: lowercase;
+    }
+    .canvas-container {
+      display: none;
+      margin-top: 20px;
+      border: 4px solid #000;
+      background: #fff;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: hidden;
+    }
+    canvas {
+      max-width: 500px;
+      max-height: 500px;
+      width: auto;
+      height: auto;
+      display: block;
+    }
+    button {
+      margin-top: 20px;
+      padding: 15px 25px;
+      font-size: 20px;
+      font-family: "Schoolbell", cursive;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      background-color: #000;
+      color: white;
+      border-radius: 10px;
+      transition: 0.3s;
+      text-transform: lowercase;
+    }
+    button:hover {
+      background-color: #333;
+    }
+    .button-container {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+  </style>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='90' font-size='90'>🏗️</text></svg>">
+</head>
+<body>
+  <h1>assemble my mfer</h1>
+  <div class="button-container">
+    <button id="uploadButton">upload mfer</button>
+    <button id="uploadTraitButton" style="display: none;">upload another trait</button>
+  </div>
+  <div class="canvas-container" id="canvasContainer">
+    <canvas id="canvas"></canvas>
+  </div>
+  <input type="file" id="fileInput" accept="image/png, image/jpeg" style="display: none;">
+
+  <script>
+    let uploadButton = document.getElementById("uploadButton");
+    let uploadTraitButton = document.getElementById("uploadTraitButton");
+    let fileInput = document.getElementById("fileInput");
+    let canvas = document.getElementById("canvas");
+    let ctx = canvas.getContext("2d");
+    let canvasContainer = document.getElementById("canvasContainer");
+    let baseImage = new Image();
+    let traitImages = [];
+    let stage = 0; 
+    // stage 0: No base image uploaded.
+    // stage 1: Base image uploaded, waiting for first overlay.
+    // stage >=2: At least one overlay uploaded, main button triggers download.
+    
+    // Main button event:
+    uploadButton.addEventListener("click", () => {
+      if (stage === 0 || stage === 1) {
+        // For stage 0 (base image) and stage 1 (first overlay), clicking main button triggers file input.
+        fileInput.click();
+      } else if (stage >= 2) {
+        // In download mode: clicking main button downloads the merged image.
+        const link = document.createElement("a");
+        link.download = "assembledmfer.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        // Reset UI after download.
+        uploadButton.textContent = "upload another mfer";
+        uploadTraitButton.style.display = "none";
+        stage = 0;
+        traitImages = [];
+      }
+    });
+    
+    // The "upload another trait" button for additional overlays.
+    uploadTraitButton.addEventListener("click", () => {
+      if (stage >= 2 && stage < 10) {
+        fileInput.click();
+      } else {
+        alert("Maximum overlays reached.");
+      }
+    });
+    
+    fileInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      // Enforce file type restrictions:
+      if (stage === 0 && !(file.type.includes("png") || file.type.includes("jpeg"))) {
+        alert("Only PNG or JPEG files are allowed for the base image.");
+        fileInput.value = "";
+        return;
+      }
+      if (stage >= 1 && !file.type.includes("png")) {
+        alert("Only PNG files are allowed for overlays.");
+        fileInput.value = "";
+        return;
+      }
+      
+      const img = new Image();
+      img.onload = function() {
+        if (img.width !== img.height) {
+          alert("Only square images are allowed.");
+          fileInput.value = "";
+          return;
+        }
+        if (img.width > 5000 || img.height > 5000) {
+          alert("Image size cannot exceed 5000x5000.");
+          fileInput.value = "";
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          if (stage === 0) {
+            // Process base image.
+            baseImage.onload = () => {
+              canvas.width = baseImage.width;
+              canvas.height = baseImage.height;
+              ctx.drawImage(baseImage, 0, 0);
+              canvasContainer.style.display = "block";
+              // After base image is uploaded, main button text becomes "upload trait".
+              uploadButton.textContent = "upload trait";
+              stage = 1;
+            };
+            baseImage.src = e.target.result;
+          } else if (stage === 1) {
+            // Process first overlay.
+            let overlay = new Image();
+            overlay.onload = () => {
+              ctx.drawImage(overlay, 0, 0, baseImage.width, baseImage.height);
+              traitImages.push(overlay);
+              // After first overlay, update main button text to "download assembled mfer"
+              // and display the "upload another trait" button.
+              uploadButton.textContent = "download assembled mfer";
+              uploadTraitButton.style.display = "inline-block";
+              stage = 2;
+            };
+            overlay.src = e.target.result;
+          } else if (stage >= 2 && stage < 10) {
+            // Process subsequent overlays.
+            let overlay = new Image();
+            overlay.onload = () => {
+              ctx.drawImage(overlay, 0, 0, baseImage.width, baseImage.height);
+              traitImages.push(overlay);
+              if (stage === 9) {
+                uploadTraitButton.style.display = "none";
+              }
+              stage++;
+            };
+            overlay.src = e.target.result;
+          }
+        };
+        reader.readAsDataURL(file);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  </script>
+</body>
+</html>
